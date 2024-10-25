@@ -1,62 +1,65 @@
 import os
 import shutil
+import logging
+import time
 
-# Dynamic path setting based on the script's location
-base_path = os.path.dirname(os.path.abspath(__file__))
-source_base = os.path.join(base_path, 'Takeout')
-destination_folder = os.path.join(base_path, 'Merged_Takeout')
+def merge_and_organize(source_folder, destination_folder, total_files):
+    total_copied = 0
+    start_time = time.time()
 
-# Ensure the destination folder exists
-os.makedirs(destination_folder, exist_ok=True)
+    logging.info(f"Starting to process {source_folder}")
 
-# Merge files from all source folders to the destination folder
-for i in range(1, 7):
-    source_folder = os.path.join(source_base, f'Takeout{i}')
-    
-    # Walk through each file in the source folder
-    for root, _, files in os.walk(source_folder):
-        for file in files:
-            # Full path to the source file
-            source_path = os.path.join(root, file)
-            
-            # Determine the relative path for merging the file structure
-            relative_path = os.path.relpath(source_path, source_folder)
-            destination_path = os.path.join(destination_folder, relative_path)
-            
-            # Ensure any subdirectories in the relative path exist in the destination
-            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-            
-            # Move file if it doesn't already exist in the destination folder
-            if not os.path.exists(destination_path):
-                shutil.move(source_path, destination_path)
+    try:
+        for root, dirs, files in os.walk(source_folder):
+            for file in files:
+                source_path = os.path.join(root, file)
+                relative_path = os.path.relpath(source_path, source_folder)
+                destination_path = os.path.join(destination_folder, relative_path)
 
-# Function to get total file count and size in a directory
-def get_folder_stats(path):
+                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+                logging.info(f"Copying {source_path} to {destination_path}")
+
+                shutil.copy2(source_path, destination_path)
+                total_copied += 1
+                percentage_complete = (total_copied / total_files) * 100
+                elapsed_time = time.time() - start_time
+                estimated_remaining_time = (elapsed_time / total_copied) * (total_files - total_copied)
+                logging.info(f"Progress: {percentage_complete:.2f}% | Elapsed Time: {elapsed_time:.2f}s | Estimated Remaining Time: {estimated_remaining_time:.2f}s")
+
+    except Exception as e:
+        logging.error(f"Error processing {source_path}: {e}")
+
+    end_time = time.time()
+    total_time = end_time - start_time
+    logging.info(f"Finished processing {source_folder} in {total_time:.2f} seconds.")
+
+def main():
+    logging.basicConfig(filename='merge_log.txt', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    source_folders = [
+        "F:\\Takeout 1",
+        "F:\\Takeout 2",
+        "F:\\Takeout 3",
+        "F:\\Takeout 4",
+        "F:\\Takeout 5"
+    ]
+    destination_folder = "F:\\Merged Takeout"
+
+    os.makedirs(destination_folder, exist_ok=True)
+
     total_files = 0
-    total_size = 0
-    for root, _, files in os.walk(path):
-        total_files += len(files)
-        total_size += sum(os.path.getsize(os.path.join(root, file)) for file in files)
-    return total_files, total_size
+    for source_folder in source_folders:
+        if os.path.exists(source_folder):
+            for root, dirs, files in os.walk(source_folder):
+                total_files += len(files)
+        else:
+            logging.warning(f"Source folder not found: {source_folder}")
 
-# Calculate source folder totals
-total_source_files = 0
-total_source_size = 0
-for i in range(1, 7):
-    source_folder = os.path.join(source_base, f'Takeout{i}')
-    files, size = get_folder_stats(source_folder)
-    total_source_files += files
-    total_source_size += size
+    logging.info("Starting the merging and organizing process...")
+    logging.info(f"Total files to process: {total_files}")
 
-# Calculate destination folder totals
-merged_files, merged_size = get_folder_stats(destination_folder)
+    for source_folder in source_folders:
+        merge_and_organize(source_folder, destination_folder, total_files)
 
-# Output results for validation
-print(f"Total files in source: {total_source_files}, Total size in source: {total_source_size} bytes")
-print(f"Total files in merged: {merged_files}, Total size in merged: {merged_size} bytes")
-
-# Check if file counts and sizes match
-if total_source_files == merged_files and total_source_size == merged_size:
-    print("Validation successful: All files have been merged correctly!")
-else:
-    print("Validation failed: The merged folder does not match the source folders.")
+if __name__ == "__main__":
+    main()
